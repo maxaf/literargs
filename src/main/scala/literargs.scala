@@ -8,7 +8,7 @@ import scala.util.parsing.input.Positional
 object `package` {
   implicit class Args(ctx: StringContext) {
     object args {
-      def unapply(unapplied: String): Any = macro ArgsMacros.unapplyImpl
+      def unapply(unapplied: Array[String]): Any = macro ArgsMacros.unapplyImpl
     }
   }
 }
@@ -20,7 +20,7 @@ class ArgsMacros(val c: whitebox.Context) extends Parts {
     def move(offset: Int) = pos.focus.withPoint(pos.focus.point + offset)
   }
 
-  def unapplyImpl(unapplied: c.Tree) = {
+  def unapplyImpl(unapplied: c.Expr[Array[String]]) = {
     val Select(Apply(_, List(Apply(_, parts))), _) = c.prefix.tree
     val Right(opts) = (new Parser).parse_!(parts.map { case Literal(Constant(x: String)) => x }.mkString(""))
     val accessors =
@@ -39,7 +39,7 @@ class ArgsMacros(val c: whitebox.Context) extends Parts {
       def isEmpty = ${opts.isEmpty}
       def get = $get
       ..$accessors
-      def unapply(x: String) = this
+      def unapply(x: Array[String]) = this
     }.unapply($unapplied)
     """
     println(showCode(result))
