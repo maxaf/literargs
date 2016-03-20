@@ -14,7 +14,8 @@ lazy val baseSettings = Seq(
     //"-Yquasiquote-debug",
     "-deprecation",
     "-unchecked",
-    "-feature"
+    "-feature",
+    "-language:higherKinds"
   )) ++ scalariformSettings ++ tutSettings
 
 lazy val deps = Seq(

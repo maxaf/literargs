@@ -6,6 +6,7 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.input.Positional
 import scala.reflect.runtime.universe.{ TypeTag => RuntimeTypeTag }
 import org.apache.commons.cli.{ Option => COption, CommandLine }
+import cats.{ Id, Monad }
 import cats.data.Xor
 
 object `package` {
@@ -13,6 +14,11 @@ object `package` {
     object args {
       def unapply(unapplied: Array[String]): Any = macro ArgsMacros.unapplyImpl
     }
+  }
+  def using[A](factory: => A)(op: A => Any): A = {
+    val a = factory
+    op(a)
+    a
   }
 }
 
@@ -23,20 +29,28 @@ case class Name(short: Char, long: Option[String]) {
     .map(new COption(s"$short", _, true, description))
     .getOrElse(new COption(s"$short", true, description))
 }
-case class Hole(required: Boolean, private[literargs] val tpe: Option[String])
+case class Hole(required: Boolean, private[literargs] val ascription: Option[String])
 case class Opt(name: Name, hole: Hole) extends Positional {
-  val option = {
-    val o = name.option
-    o.setRequired(hole.required)
-    o
+  val option = using(name.option)(_.setRequired(hole.required))
+}
+
+sealed abstract class Purify[M[_]](protected implicit val M: Monad[M]) {
+  def purify[A](a: A): M[A]
+}
+
+object Purify {
+  implicit object PurifyId extends Purify[Id] {
+    def purify[A](a: A) = M.pure(a)
+  }
+  implicit def PurifyOption(implicit M: Monad[Option]) = new Purify[Option] {
+    def purify[A](a: A) = M.flatMap(M.pure(a))(Option(_))
   }
 }
 
-abstract class Argument[T: RuntimeTypeTag](val name: String, val opt: Opt)(implicit cmd: CommandLine) {
+abstract class Argument[M[_]: Purify, T: RuntimeTypeTag](val name: String, val opt: Opt)(implicit cmd: CommandLine) {
   def tag = implicitly[RuntimeTypeTag[T]]
   private val raw = cmd.getOptionValue(name)
-  val string: Xor[Option[String], String] =
-    if (opt.hole.required) Xor.right(raw) else Xor.left(Option(raw))
+  val string: M[String] = implicitly[Purify[M]].purify(raw)
 }
 
 class ArgsMacros(val c: whitebox.Context) extends Parsing {
@@ -47,30 +61,28 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
   }
 
   private class OptPlus(opt: Opt, idx: Int) {
-    private val Opt(name, hole) = opt
+    private val Opt(name, Hole(required, ascription)) = opt
     val ident = TermName(s"`${name.repr}`")
-    val tpe = {
-      val t = hole.tpe.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
-      if (hole.required) t else tq"Option[$t]"
-    }
+    val tpe = ascription.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
     val replica = q"""
       Opt(
         name = Name(
           short = ${Literal(Constant(name.short))},
           long = ${name.long.map(l => q"Some(${Literal(Constant(l))})").getOrElse(q"None")}),
         hole = Hole(
-          required = ${Literal(Constant(hole.required))},
-          tpe = None))
+          required = ${Literal(Constant(required))},
+          ascription = None))
     """
+    val monad = if (required) tq"cats.Id" else tq"Option"
     val argument = q"""
       object $ident
-      extends Argument[$tpe](
+      extends Argument[$monad, $tpe](
         ${Literal(Constant(name.repr))},
         opts.$ident
       )
     """
     val ordinal = TermName(s"_${idx + 1}")
-    val accessor = q"""def $ordinal: Argument[$tpe] = $ident"""
+    val accessor = q"""def $ordinal: Argument[$monad, $tpe] = $ident"""
   }
 
   def unapplyImpl(unapplied: c.Expr[Array[String]]) = {
@@ -82,7 +94,7 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
     })
 
     val get = opts match {
-      case single :: Nil => q"def get: Argument[${single.tpe}] = ${single.ident}"
+      case single :: Nil => q"def get: Argument[${single.monad}, ${single.tpe}] = ${single.ident}"
       case _ => q"def get = this"
     }
 
@@ -93,13 +105,12 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
         object opts {
           ..${opts.map(opt => q"val ${opt.ident} = ${opt.replica}")}
         }
-        implicit val cmd = {
+        implicit val cmd =
           new DefaultParser().parse({
             val os = new Options
             ..${opts.map(opt => q"os.addOption(opts.${opt.ident}.option)")}
             os
           }, argv)
-        }
         ..${opts.map(opt => opt.argument)}
         def isEmpty = ${opts.isEmpty}
         $get

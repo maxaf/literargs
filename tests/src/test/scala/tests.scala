@@ -1,5 +1,7 @@
 package literargs
 
+import cats.implicits._
+
 //object multiple {
 //  def main(argv: Array[String]) {
 //    val args"""
@@ -11,5 +13,5 @@ package literargs
 //}
 
 object single {
-  val args"-a|--aaa <$a>" = Array("-a", "1")
+  val args"-a|--aaa <$a> -b [$b]" = Array("-a", "1")
 }
