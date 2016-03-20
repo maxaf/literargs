@@ -4,9 +4,8 @@ import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 import scala.util.parsing.combinator._
 import scala.util.parsing.input.Positional
-import scala.reflect.runtime.universe.{ TypeTag => RuntimeTypeTag }
 import org.apache.commons.cli.{ Option => COption, CommandLine }
-import cats.{ Id, Monad }
+import cats.{ Id, Monad, Functor }
 import cats.data.Xor
 
 object `package` {
@@ -47,10 +46,20 @@ object Purify {
   }
 }
 
-abstract class Argument[M[_]: Purify, T: RuntimeTypeTag](val name: String, val opt: Opt)(implicit cmd: CommandLine) {
-  def tag = implicitly[RuntimeTypeTag[T]]
+sealed abstract class Extractor[F[_], T](protected implicit val F: Functor[F]) {
+  def extract(raw: F[String]): F[T]
+}
+
+object Extractor {
+  implicit def ExtractString[F[_]: Functor] = new Extractor[F, String] {
+    def extract(raw: F[String]) = F.map(raw)(identity)
+  }
+}
+
+abstract class Argument[M[_], T](val name: String, val opt: Opt)(implicit cmd: CommandLine, P: Purify[M], E: Extractor[M, T]) {
   private val raw = cmd.getOptionValue(name)
-  val string: M[String] = implicitly[Purify[M]].purify(raw)
+  val string = P.purify(raw)
+  val value = E.extract(string)
 }
 
 class ArgsMacros(val c: whitebox.Context) extends Parsing {
