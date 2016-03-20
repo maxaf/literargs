@@ -6,13 +6,14 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.input.Positional
 import org.apache.commons.cli.{ Option => COption, CommandLine }
 import cats.{ Id, Monad, Functor }
-import cats.data.Xor
 
 object `package` {
   implicit class Args(ctx: StringContext) {
-    object args {
+    class Args {
       def unapply(unapplied: Array[String]): Any = macro ArgsMacros.unapplyImpl
     }
+    object args extends Args
+    object argsd extends Args
   }
   def using[A](factory: => A)(op: A => Any): A = {
     val a = factory
@@ -94,8 +95,16 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
     val accessor = q"""def $ordinal: Argument[$monad, $tpe] = $ident"""
   }
 
+  private object Debug {
+    def unapply(interpolator: c.universe.Name): Option[Boolean] =
+      Some(interpolator match {
+        case TermName("argsd") => true
+        case _ => false
+      })
+  }
+
   def unapplyImpl(unapplied: c.Expr[Array[String]]) = {
-    val Select(Apply(_, List(Apply(_, parts))), _) = c.prefix.tree
+    val Select(Apply(_, List(Apply(_, parts))), Debug(debug)) = c.prefix.tree
     val text = parts.map { case Literal(Constant(x: String)) => x }.mkString("")
 
     val Right(opts) = (new Parser).parse_!(text).right.map(_.zipWithIndex.map {
@@ -128,7 +137,7 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
       def unapply(argv: Array[String]) = new Match(argv)
     }.unapply($unapplied)
     """
-    println(showCode(unapply))
+    if (debug) println(showCode(unapply))
     unapply
   }
 }
