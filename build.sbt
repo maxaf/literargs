@@ -19,6 +19,7 @@ lazy val baseSettings = Seq(
 
 lazy val deps = Seq(
  libraryDependencies ++= Seq(
+   "org.typelevel" %% "cats" % "0.4.1",
    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
    "commons-cli" % "commons-cli" % "1.3.1",
    "org.specs2" %% "specs2-core" % "3.7.2" % "test",

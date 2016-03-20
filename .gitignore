@@ -19,3 +19,4 @@ project/plugins/project/
 # Vim stuff
 *.swp
 *.un~
+.idea/

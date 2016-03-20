@@ -6,6 +6,7 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.input.Positional
 import scala.reflect.runtime.universe.{ TypeTag => RuntimeTypeTag }
 import org.apache.commons.cli.{ Option => COption, CommandLine }
+import cats.data.Xor
 
 object `package` {
   implicit class Args(ctx: StringContext) {
@@ -31,87 +32,88 @@ case class Opt(name: Name, hole: Hole) extends Positional {
   }
 }
 
-abstract class Argument[T: RuntimeTypeTag](val name: String)(implicit cmd: CommandLine) {
+abstract class Argument[T: RuntimeTypeTag](val name: String, val opt: Opt)(implicit cmd: CommandLine) {
   def tag = implicitly[RuntimeTypeTag[T]]
-  val value = cmd.getOptionValue(name)
+  private val raw = cmd.getOptionValue(name)
+  val string: Xor[Option[String], String] =
+    if (opt.hole.required) Xor.right(raw) else Xor.left(Option(raw))
 }
 
-class ArgsMacros(val c: whitebox.Context) extends Model with Parts {
+class ArgsMacros(val c: whitebox.Context) extends Parsing {
   import c.universe._
 
   implicit class Possition(pos: Position) {
     def move(offset: Int) = pos.focus.withPoint(pos.focus.point + offset)
   }
 
+  private class OptPlus(opt: Opt, idx: Int) {
+    private val Opt(name, hole) = opt
+    val ident = TermName(s"`${name.repr}`")
+    val tpe = {
+      val t = hole.tpe.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
+      if (hole.required) t else tq"Option[$t]"
+    }
+    val replica = q"""
+      Opt(
+        name = Name(
+          short = ${Literal(Constant(name.short))},
+          long = ${name.long.map(l => q"Some(${Literal(Constant(l))})").getOrElse(q"None")}),
+        hole = Hole(
+          required = ${Literal(Constant(hole.required))},
+          tpe = None))
+    """
+    val argument = q"""
+      object $ident
+      extends Argument[$tpe](
+        ${Literal(Constant(name.repr))},
+        opts.$ident
+      )
+    """
+    val ordinal = TermName(s"_${idx + 1}")
+    val accessor = q"""def $ordinal: Argument[$tpe] = $ident"""
+  }
+
   def unapplyImpl(unapplied: c.Expr[Array[String]]) = {
     val Select(Apply(_, List(Apply(_, parts))), _) = c.prefix.tree
     val text = parts.map { case Literal(Constant(x: String)) => x }.mkString("")
-    val Right(opts) = (new Parser).parse_!(text)
-    val (arguments, accessorsAndReplicas) = opts.zipWithIndex.map {
-      case (Opt(name, hole), idx) =>
-        val ident = TermName(s"`${name.repr}`")
-        val tpe = holeType(hole)
-        val replica = q"""
-          Opt(
-            name = Name(
-              short = ${Literal(Constant(name.short))},
-              long = ${name.long.map(l => q"Some(${Literal(Constant(l))})").getOrElse(q"None")}),
-            hole = Hole(
-              required = ${Literal(Constant(hole.required))},
-              tpe = None))
-        """
-        val argument = q"""
-          object $ident
-          extends Argument[$tpe](${Literal(Constant(name.repr))})
-        """
-        val ordinal = TermName(s"_${idx + 1}")
-        val accessor = q"""def $ordinal: Argument[$tpe] = $ident"""
-        (argument, (accessor, replica))
-    }.unzip
-    val (accessors, replicas) = accessorsAndReplicas.unzip
-    val get = arguments match {
-      case q"object $ident extends Argument[$tpe]($name)" :: Nil =>
-        q"def get: Argument[$tpe] = $ident"
+
+    val Right(opts) = (new Parser).parse_!(text).right.map(_.zipWithIndex.map {
+      case (opt, idx) => new OptPlus(opt, idx)
+    })
+
+    val get = opts match {
+      case single :: Nil => q"def get: Argument[${single.tpe}] = ${single.ident}"
       case _ => q"def get = this"
     }
 
-    val result = q"""
+    val unapply = q"""
     new {
       import org.apache.commons.cli.{Options, DefaultParser}
       class Match(argv: Array[String]) {
-        implicit val $$commandLine = {
-          val $$options = {
-            val os = new Options
-            ..${replicas.map(replica => q"os.addOption($replica.option)")}
-            os
-          }
-          new DefaultParser().parse($$options, argv)
+        object opts {
+          ..${opts.map(opt => q"val ${opt.ident} = ${opt.replica}")}
         }
-        ..$arguments
+        implicit val cmd = {
+          new DefaultParser().parse({
+            val os = new Options
+            ..${opts.map(opt => q"os.addOption(opts.${opt.ident}.option)")}
+            os
+          }, argv)
+        }
+        ..${opts.map(opt => opt.argument)}
         def isEmpty = ${opts.isEmpty}
         $get
-        ..$accessors
+        ..${opts.map(opt => opt.accessor)}
       }
       def unapply(argv: Array[String]) = new Match(argv)
     }.unapply($unapplied)
     """
-    println(showCode(result))
-    result
+    println(showCode(unapply))
+    unapply
   }
 }
 
-trait Model {
-  self: ArgsMacros =>
-
-  import c.universe._
-
-  def holeType(hole: Hole) = {
-    val t = hole.tpe.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
-    if (hole.required) t else tq"Option[$t]"
-  }
-}
-
-trait Parts {
+trait Parsing {
   self: ArgsMacros =>
 
   class Parser extends RegexParsers {
