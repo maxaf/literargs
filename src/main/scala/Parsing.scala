@@ -18,12 +18,13 @@ trait Parsing {
       case short ~ long => OptName(short.head, long)
     }
 
-    def hole(reqd: Boolean, open: String, close: String): Parser[Hole] =
-      open ~> opt(":" ~> "[a-zA-Z]+".r) <~ close ^^ { Hole(reqd, _) }
-    def required = hole(reqd = true, open = "<", close = ">")
-    def optional = hole(reqd = false, open = "[", close = "]")
+    def valueHole(reqd: Boolean, open: String, close: String): Parser[Hole] =
+      open ~> opt(":" ~> "[a-zA-Z]+".r) <~ close ^^ { ValueHole(reqd, _) }
+    def requiredValue = valueHole(reqd = true, open = "<", close = ">")
+    def optionalValue = valueHole(reqd = false, open = "[", close = "]")
+    def booleanHole = maybeWhitespace ^^ { _ => BooleanHole }
 
-    def option = positioned(name ~ (required | optional) ^^ {
+    def option = positioned(name ~ (requiredValue | optionalValue | booleanHole) ^^ {
       case name ~ required => ParsedOpt(name, required)
     })
 

@@ -17,19 +17,25 @@ trait OptPlus_ {
         name = OptName(
           short = ${Literal(Constant(name.short))},
           long = ${name.long.map(l => q"Some(${Literal(Constant(l))})").getOrElse(q"None")}),
-        hole = Hole(
-          required = ${Literal(Constant(required))},
-          ascription = None))
+        hole = ${replicateHole(hole)})
     """
     val monad = if (required) tq"cats.Id" else tq"Option"
-    val argument = q"""
-      object $ident
-      extends Argument[$monad, $tpe](
-        ${Literal(Constant(name.repr))},
-        opts.$ident
-      )
-    """
+    val argument = opt.hole match {
+      case ValueHole(_, _) => q"object $ident extends ValueArgument[$monad, $tpe](opts.$ident)"
+      case BooleanHole => q"object $ident extends BooleanArgument(opts.$ident)"
+    }
     val ordinal = TermName(s"_${idx + 1}")
-    val accessor = q"""def $ordinal: Argument[$monad, $tpe] = $ident"""
+    val argType = opt.hole match {
+      case ValueHole(_, _) => tq"Argument[$monad, $tpe]"
+      case BooleanHole => tq"Argument[cats.Id, Boolean]"
+    }
+    val accessor = q"""def $ordinal: $argType = $ident"""
   }
+
+  private def replicateHole(hole: Hole): Tree =
+    hole match {
+      case ValueHole(required, _) =>
+        q"ValueHole(required = ${Literal(Constant(required))}, ascription = None)"
+      case BooleanHole => q"BooleanHole"
+    }
 }
