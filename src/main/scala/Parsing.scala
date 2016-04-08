@@ -18,8 +18,12 @@ trait Parsing {
       case short ~ long => OptName(short.head, long)
     }
 
+    def unary = "".r ^^ { _ => Unary(_) }
+    def n_ary = "\\.\\.".r ^^ { _ => N_ary(_) }
+    def arity = n_ary | unary
+
     def valueHole(reqd: Boolean, open: String, close: String): Parser[Hole] =
-      open ~> opt(":" ~> "[a-zA-Z]+".r) <~ close ^^ { ValueHole(reqd, _) }
+      open ~> (arity ~ opt(":" ~> "[a-zA-Z]+".r)) <~ close ^^ { case ar ~ as => ValueHole(ar(reqd), as) }
     def requiredValue = valueHole(reqd = true, open = "<", close = ">")
     def optionalValue = valueHole(reqd = false, open = "[", close = "]")
     def booleanHole = maybeWhitespace ^^ { _ => BooleanHole }

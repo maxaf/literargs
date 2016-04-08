@@ -4,7 +4,9 @@ import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
 class ArgsMacros(val c: whitebox.Context) extends Parsing {
+  object liftables extends Liftables[c.type](c)
   import c.universe._
+  import liftables._
 
   implicit class MovablePosition(pos: Position) {
     def move(offset: Int) = pos.focus.withPoint(pos.focus.point + offset)
@@ -18,7 +20,7 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
     val opts = parsed.zipWithIndex.map { case (opt, idx) => opt[c.type](c, idx) }
 
     val get = opts match {
-      case single :: Nil => q"def get: Argument[${single.monad}, ${single.tpe}] = ${single.ident}"
+      case single :: Nil => q"def get: ${single.argType} = ${single.ident}"
       case _ => q"def get = this"
     }
 
@@ -27,7 +29,7 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
       import org.apache.commons.cli.{Options, DefaultParser}
       class Match(argv: Array[String]) {
         object opts {
-          ..${opts.map(opt => q"val ${opt.ident} = ${opt.replica}")}
+          ..${opts.map(opt => q"val ${opt.ident} = ${opt.opt}")}
         }
         implicit val cmd =
           new DefaultParser().parse({
