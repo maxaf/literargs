@@ -22,7 +22,14 @@ object `package` {
   }
 }
 
-case class Name(short: Char, long: Option[String]) {
+case class Usage(name: String, opts: List[Opt])
+trait Opt {
+  def name: OptName
+  private[literargs] def hole: Hole
+  private[literargs] def option: COption
+}
+
+case class OptName(short: Char, long: Option[String]) {
   val repr = long.getOrElse(s"$short")
   val description = s"-$short"
   val option = long
@@ -30,7 +37,7 @@ case class Name(short: Char, long: Option[String]) {
     .getOrElse(new COption(s"$short", true, description))
 }
 case class Hole(required: Boolean, private[literargs] val ascription: Option[String])
-case class Opt(name: Name, hole: Hole) extends Positional {
+case class ParsedOpt(name: OptName, private[literargs] val hole: Hole) extends Opt with Positional {
   val option = using(name.option)(_.setRequired(hole.required))
 }
 
@@ -55,6 +62,9 @@ object Extractor {
   implicit def ExtractString[F[_]: Functor] = new Extractor[F, String] {
     def extract(raw: F[String]) = F.map(raw)(identity)
   }
+  implicit def ExtractInt[F[_]: Functor] = new Extractor[F, Int] {
+    def extract(raw: F[String]) = F.map(raw)(_.toInt)
+  }
 }
 
 abstract class Argument[M[_], T](val name: String, val opt: Opt)(implicit cmd: CommandLine, P: Purify[M], E: Extractor[M, T]) {
@@ -70,13 +80,16 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
     def move(offset: Int) = pos.focus.withPoint(pos.focus.point + offset)
   }
 
-  private class OptPlus(opt: Opt, idx: Int) {
-    private val Opt(name, Hole(required, ascription)) = opt
+  private class OptPlus(opt: ParsedOpt, idx: Int) extends Opt {
+    private val ParsedOpt(_, Hole(required, ascription)) = opt
+    private[literargs] def hole = opt.hole
+    def name = opt.name
+    private[literargs] def option = opt.option
     val ident = TermName(s"`${name.repr}`")
     val tpe = ascription.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
     val replica = q"""
-      Opt(
-        name = Name(
+      ParsedOpt(
+        name = OptName(
           short = ${Literal(Constant(name.short))},
           long = ${name.long.map(l => q"Some(${Literal(Constant(l))})").getOrElse(q"None")}),
         hole = Hole(
@@ -96,7 +109,7 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
   }
 
   private object Debug {
-    def unapply(interpolator: c.universe.Name): Option[Boolean] =
+    def unapply(interpolator: Name): Option[Boolean] =
       Some(interpolator match {
         case TermName("argsd") => true
         case _ => false
@@ -107,9 +120,11 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing {
     val Select(Apply(_, List(Apply(_, parts))), Debug(debug)) = c.prefix.tree
     val text = parts.map { case Literal(Constant(x: String)) => x }.mkString("")
 
-    val Right(opts) = (new Parser).parse_!(text).right.map(_.zipWithIndex.map {
-      case (opt, idx) => new OptPlus(opt, idx)
-    })
+    val Right(Usage(program, opts: List[OptPlus])) = (new Parser).parse_!(text).right.map(
+      u => u.copy(u.name, u.opts.zipWithIndex.map {
+        case (opt @ ParsedOpt(_, _), idx) => new OptPlus(opt, idx)
+      })
+    )
 
     val get = opts match {
       case single :: Nil => q"def get: Argument[${single.monad}, ${single.tpe}] = ${single.ident}"
@@ -154,7 +169,7 @@ trait Parsing {
     def shortName = "-" ~> "[a-zA-Z0-9]".r
 
     def name = (shortName ~ opt('|' ~> longName)) <~ optionEnd ^^ {
-      case short ~ long => Name(short.head, long)
+      case short ~ long => OptName(short.head, long)
     }
 
     def hole(reqd: Boolean, open: String, close: String): Parser[Hole] =
@@ -162,7 +177,9 @@ trait Parsing {
     def required = hole(reqd = true, open = "<", close = ">")
     def optional = hole(reqd = false, open = "[", close = "]")
 
-    def option = positioned(name ~ (required | optional) ^^ { case name ~ required => Opt(name, required) })
+    def option = positioned(name ~ (required | optional) ^^ {
+      case name ~ required => ParsedOpt(name, required)
+    })
 
     def maybeWhitespace = opt("""\s+""".r)
     def maybeNewline = opt(sys.props("line.separator"))
@@ -173,9 +190,13 @@ trait Parsing {
 
     def lines = repsep(line, maybeNewline)
 
-    def parse_!(text: String): Either[Either[Error, Failure], List[Opt]] =
-      parseAll(lines, text) match {
-        case result @ Success(good, x) => Right(good.flatten)
+    def usage = maybeNewline ~> maybeWhitespace ~> "Usage: " ~> "[a-zA-Z0-9_-]+".r ~ lines ^^ {
+      case name ~ opts => Usage(name, opts.flatten)
+    }
+
+    def parse_!(text: String): Either[Either[Error, Failure], Usage] =
+      parseAll(usage, text) match {
+        case result @ Success(good, x) => Right(good)
         case fail @ Failure(_, _) => Left(Right(fail))
         case err @ Error(_, _) => Left(Left(err))
       }
