@@ -25,7 +25,7 @@ trait Parsing {
     def booleanHole = maybeWhitespace ^^ { _ => BooleanHole }
 
     def option = positioned(name ~ (requiredValue | optionalValue | booleanHole) ^^ {
-      case name ~ required => ParsedOpt(name, required)
+      case name ~ required => Opt(name, required)
     })
 
     def maybeWhitespace = opt("""\s+""".r)

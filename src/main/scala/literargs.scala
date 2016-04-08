@@ -16,4 +16,6 @@ object `package` {
     op(a)
     a
   }
+
+  //implicit def unwrapPlus(plus: Opt#Plus): Opt = plus.opt
 }

@@ -3,13 +3,39 @@ package literargs
 import scala.util.parsing.input.Positional
 import cats.Id
 import org.apache.commons.cli.{ Option => COption, CommandLine }
+import scala.reflect.macros.whitebox
 
 case class Usage(name: String, opts: List[Opt])
 
-trait Opt {
-  def name: OptName
-  private[literargs] def hole: Hole
-  private[literargs] def option: COption
+case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positional {
+  val option = hole.option(name)
+
+  class Plus[C <: whitebox.Context](val c: C, idx: Int, val opt: Opt) {
+    import c.universe._
+    private val Hole(required, ascription) = hole
+    val ident = TermName(s"`${name.repr}`")
+    val tpe = ascription.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
+    val replica = q"""
+      Opt(
+        name = OptName(
+          short = ${Literal(Constant(name.short))},
+          long = ${name.long.map(l => q"Some(${Literal(Constant(l))})").getOrElse(q"None")}),
+        hole = ${hole.replicate(c)})
+    """
+    val monad = if (required) tq"cats.Id" else tq"Option"
+    val argument = hole match {
+      case ValueHole(_, _) => q"object $ident extends ValueArgument[$monad, $tpe](opts.$ident)"
+      case BooleanHole => q"object $ident extends BooleanArgument(opts.$ident)"
+    }
+    val ordinal = TermName(s"_${idx + 1}")
+    val argType = hole match {
+      case ValueHole(_, _) => tq"Argument[$monad, $tpe]"
+      case BooleanHole => tq"Argument[cats.Id, Boolean]"
+    }
+    val accessor = q"""def $ordinal: $argType = $ident"""
+  }
+
+  def apply[C <: whitebox.Context](c: C, idx: Int) = new Plus[C](c, idx, this)
 }
 
 case class OptName(short: Char, long: Option[String]) {
@@ -26,6 +52,8 @@ sealed trait Hole {
   private[literargs] def ascription: Option[String]
 
   def option(name: OptName): COption
+
+  def replicate(c: whitebox.Context): c.universe.Tree
 }
 
 object Hole {
@@ -36,6 +64,10 @@ object Hole {
 case class ValueHole(required: Boolean, private[literargs] val ascription: Option[String]) extends Hole {
   def option(name: OptName): COption =
     using(name.builder())(_.hasArg(true).required(required)).build()
+  def replicate(c: whitebox.Context) = {
+    import c.universe._
+    q"ValueHole(required = ${Literal(Constant(required))}, ascription = None)"
+  }
 }
 
 case object BooleanHole extends Hole {
@@ -43,10 +75,10 @@ case object BooleanHole extends Hole {
   private[literargs] def ascription = None
   def option(name: OptName): COption =
     using(name.builder())(_.hasArg(false).required(false)).build()
-}
-
-case class ParsedOpt(name: OptName, private[literargs] val hole: Hole) extends Opt with Positional {
-  val option = hole.option(name)
+  def replicate(c: whitebox.Context) = {
+    import c.universe._
+    q"BooleanHole"
+  }
 }
 
 sealed trait Argument[M[_], T] {

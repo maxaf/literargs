@@ -3,7 +3,7 @@ package literargs
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
-class ArgsMacros(val c: whitebox.Context) extends Parsing with OptPlus_ {
+class ArgsMacros(val c: whitebox.Context) extends Parsing {
   import c.universe._
 
   implicit class MovablePosition(pos: Position) {
@@ -14,11 +14,8 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing with OptPlus_ {
     val Select(Apply(_, List(Apply(_, parts))), Debug(debug)) = c.prefix.tree
     val text = parts.map { case Literal(Constant(x: String)) => x }.mkString("")
 
-    val Right(Usage(program, opts: List[OptPlus])) = (new Parser).parse_!(text).right.map(
-      u => u.copy(u.name, u.opts.zipWithIndex.map {
-        case (opt @ ParsedOpt(_, _), idx) => new OptPlus(opt, idx)
-      })
-    )
+    val Right(Usage(program, parsed)) = (new Parser).parse_!(text)
+    val opts = parsed.zipWithIndex.map { case (opt, idx) => opt[c.type](c, idx) }
 
     val get = opts match {
       case single :: Nil => q"def get: Argument[${single.monad}, ${single.tpe}] = ${single.ident}"
