@@ -10,11 +10,10 @@ case class Usage(name: String, opts: List[Opt])
 case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positional {
   val option = hole.option(name)
 
-  class Plus[C <: whitebox.Context](val c: C, idx: Int, val opt: Opt) {
+  private[literargs] class Plus[C <: whitebox.Context](val c: C, idx: Int, val opt: Opt) {
     import c.universe._
-    private val Hole(required, ascription) = hole
     val ident = TermName(s"`${name.repr}`")
-    val tpe = ascription.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
+    val tpe = hole.ascription.map(t => tq"${TypeName(t)}").getOrElse(tq"String")
     val replica = q"""
       Opt(
         name = OptName(
@@ -22,7 +21,7 @@ case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positio
           long = ${name.long.map(l => q"Some(${Literal(Constant(l))})").getOrElse(q"None")}),
         hole = ${hole.replicate(c)})
     """
-    val monad = if (required) tq"cats.Id" else tq"Option"
+    val monad = if (hole.required) tq"cats.Id" else tq"Option"
     val argument = hole match {
       case ValueHole(_, _) => q"object $ident extends ValueArgument[$monad, $tpe](opts.$ident)"
       case BooleanHole => q"object $ident extends BooleanArgument(opts.$ident)"
@@ -35,7 +34,7 @@ case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positio
     val accessor = q"""def $ordinal: $argType = $ident"""
   }
 
-  def apply[C <: whitebox.Context](c: C, idx: Int) = new Plus[C](c, idx, this)
+  private[literargs] def apply[C <: whitebox.Context](c: C, idx: Int) = new Plus[C](c, idx, this)
 }
 
 case class OptName(short: Char, long: Option[String]) {
@@ -47,7 +46,7 @@ case class OptName(short: Char, long: Option[String]) {
   }
 }
 
-sealed trait Hole {
+private[literargs] sealed trait Hole {
   def required: Boolean
   private[literargs] def ascription: Option[String]
 
@@ -56,7 +55,7 @@ sealed trait Hole {
   def replicate(c: whitebox.Context): c.universe.Tree
 }
 
-object Hole {
+private[literargs] object Hole {
   def unapply(hole: Hole): Option[(Boolean, Option[String])] =
     Some(hole.required -> hole.ascription)
 }

@@ -1,5 +1,6 @@
-package literargs
+package tests
 
+import literargs._
 import cats.implicits._
 
 object multiple {
