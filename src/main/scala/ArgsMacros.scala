@@ -27,17 +27,17 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing with Parts {
 
     val unapply = q"""
     new {
-      import org.apache.commons.cli.{Options, DefaultParser}
+      import org.apache.commons.cli.{Options, LenientParser}
       class Match(argv: Array[String]) {
         object opts {
           ..${opts.map(opt => q"val ${opt.ident} = ${opt.opt}")}
         }
         implicit val cmd =
-          new DefaultParser().parse({
+          new LenientParser().parse({
             val os = new Options
             ..${opts.map(opt => q"os.addOption(opts.${opt.ident}.option)")}
             os
-          }, argv, true)
+          }, argv)
         ..${opts.map(_.argument)}
         def isEmpty = ${opts.isEmpty}
         $get
