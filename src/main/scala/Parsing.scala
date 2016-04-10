@@ -4,8 +4,6 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.input.Positional
 
 trait Parsing {
-  self: ArgsMacros =>
-
   class Parser extends RegexParsers {
     override def skipWhitespace = false
 
@@ -38,16 +36,11 @@ trait Parsing {
     def line = maybeWhitespace ~ rep1sep(option, " ") ~ maybeWhitespace ^^ {
       case _ ~ line ~ _ => line
     }
-
     def lines = repsep(line, maybeNewline)
 
-    def usage = maybeNewline ~> maybeWhitespace ~> "Usage: " ~> "[a-zA-Z0-9_-]+".r ~ lines ^^ {
-      case name ~ opts => Usage(name, opts.flatten)
-    }
-
-    def parse_!(text: String): Either[Either[Error, Failure], Usage] =
-      parseAll(usage, text) match {
-        case result @ Success(good, x) => Right(good)
+    def parse_!(text: String): Either[Either[Error, Failure], List[Opt]] =
+      parseAll(lines, text) match {
+        case result @ Success(good, x) => Right(good.flatten)
         case fail @ Failure(_, _) => Left(Right(fail))
         case err @ Error(_, _) => Left(Left(err))
       }

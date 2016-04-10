@@ -6,14 +6,12 @@ import cats.data.Xor
 import org.apache.commons.cli.{ Option => COption, CommandLine }
 import scala.reflect.macros.whitebox
 
-case class Usage(name: String, opts: List[Opt])
-
 case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positional {
   val option = hole.option(name)
 
   private[literargs] class Plus[C <: whitebox.Context](val c: C, idx: Int, val opt: Opt) {
     import c.universe._
-    val ident = TermName(s"`${name.repr}`")
+    val ident = c.freshName(TermName(s"`${name.repr}`"))
     val ordinal = TermName(s"_${idx + 1}")
     val (argument, argType) = hole match {
       case BooleanHole =>
@@ -30,25 +28,45 @@ case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positio
   }
 
   private[literargs] def apply[C <: whitebox.Context](c: C, idx: Int) = new Plus[C](c, idx, this)
+
+  def render = (name.render, hole.render)
 }
 
 case class OptName(short: Char, long: Option[String]) {
   val repr = long.getOrElse(s"$short")
-  val description = s"-$short"
   def builder() = using(COption.builder(short.toString)) {
     builder =>
       long.foreach(builder.longOpt(_))
   }
+  def render = s"-$short" + (long match {
+    case Some(long) => s"|--$long"
+    case _ => ""
+  })
 }
 
 sealed trait Arity {
   def matches(cmd: CommandLine, opt: Opt): Boolean = ???
+  def render(ascription: Option[String]): String
 }
-case class Unary(required: Boolean) extends Arity
-case class N_ary(required: Boolean) extends Arity
+private[literargs] sealed trait Brackets {
+  self: Arity =>
+  protected def brackets(required: Boolean, ascription: Option[String], nary: Boolean = false) = {
+    val dots = if (nary) ".." else ""
+    val inner = ascription.map(":" + _).getOrElse("")
+    if (required) "<" + dots + inner + ">"
+    else "[" + dots + inner + "]"
+  }
+}
+case class Unary(required: Boolean) extends Arity with Brackets {
+  def render(ascription: Option[String]) = brackets(required, ascription)
+}
+case class N_ary(required: Boolean) extends Arity with Brackets {
+  def render(ascription: Option[String]) = brackets(required, ascription, nary = true)
+}
 
 private[literargs] sealed trait Hole {
   def option(name: OptName): COption
+  def render: String
 }
 
 case class ValueHole(arity: Arity, private[literargs] val ascription: Option[String]) extends Hole {
@@ -57,12 +75,14 @@ case class ValueHole(arity: Arity, private[literargs] val ascription: Option[Str
       case Unary(true) => true
       case _ => false
     })).build()
+  def render = arity.render(ascription)
 }
 
 case object BooleanHole extends Hole {
   private[literargs] def ascription = None
   def option(name: OptName): COption =
     using(name.builder())(_.hasArg(false).required(false)).build()
+  def render = ""
 }
 
 sealed trait Argument[M[_], T] {
