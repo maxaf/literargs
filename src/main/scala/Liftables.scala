@@ -6,13 +6,13 @@ abstract class Liftables[C <: whitebox.Context](val c: C) {
   import c.universe._
   implicit object liftArity extends Liftable[Arity] {
     def apply(arity: Arity) = arity match {
-      case Unary(required) => q"Unary($required)"
-      case N_ary(required) => q"N_ary($required)"
+      case Unary(required) => q"Unary(required = $required)"
+      case N_ary(required) => q"N_ary(required = $required)"
     }
   }
   implicit object liftHole extends Liftable[Hole] {
     def apply(hole: Hole) = hole match {
-      case ValueHole(arity, ascription) => q"ValueHole($arity, $ascription)"
+      case ValueHole(arity, ascription) => q"ValueHole(arity = $arity, ascription = $ascription)"
       case BooleanHole => q"BooleanHole"
     }
   }

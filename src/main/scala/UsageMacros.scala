@@ -12,6 +12,7 @@ class UsageMacros(val c: whitebox.Context) extends Parts with Parsing {
   import c.universe._
 
   case class ArgsDecl(
+      debug: Boolean,
       mods: Modifiers,
       tuple: TermName,
       argv: Tree,
@@ -43,7 +44,8 @@ class UsageMacros(val c: whitebox.Context) extends Parts with Parsing {
   implicit object ArgsDeclLiftable extends Liftable[ArgsDecl] {
     def apply(decl: ArgsDecl) = {
       import decl._
-      val kase = q"StringContext(..$parts).args(..$patterns)"
+      val interpolator = TermName(if (debug) "argsd" else "args")
+      val kase = q"StringContext(..$parts).$interpolator(..$patterns)"
       q"""
         $mods val $tuple = ($argv: @scala.unchecked) match {
           case $kase => (..$names)
@@ -54,14 +56,21 @@ class UsageMacros(val c: whitebox.Context) extends Parts with Parsing {
   }
 
   object ArgsDecl {
+    private object Interpolator {
+      def unapply(t: TermName): Option[Boolean] = t match {
+        case TermName("args") => Some(false)
+        case TermName("argsd") => Some(true)
+        case _ => None
+      }
+    }
     def unapply(tree: Tree): Option[ArgsDecl] = tree match {
       case q"""$mods val $tuple = ($argv: @scala.unchecked) match {
         case ${ CaseDef(
-        q"StringContext(..$parts).args(..$patterns)",
+        q"StringContext(..$parts).${ Interpolator(debug) }(..$patterns)",
         _,
         q"$creator(..$names)") }
       }""" =>
-        Some(ArgsDecl(mods, tuple, argv, parts, patterns, names))
+        Some(ArgsDecl(debug, mods, tuple, argv, parts, patterns, names))
       case _ => None
     }
   }

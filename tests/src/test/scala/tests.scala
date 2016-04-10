@@ -6,7 +6,7 @@ import cats.implicits._
 object ssh {
   def main(argv: Array[String]) {
     @usage def ssh {
-      val args"""
+      val argsd"""
         -1 $protocol_1 -2 $protocol_2
         -4 $ipv4 -6 $ipv6
         -A $forward_agent -a $no_forward_agent
