@@ -3,12 +3,10 @@ package literargs
 import scala.util.parsing.input.Positional
 import cats.Id
 import cats.data.Xor
-import org.apache.commons.cli.{ Option => COption, CommandLine }
 import scala.reflect.macros.whitebox
+import OptionParsers._
 
 case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positional {
-  val option = hole.option(name)
-
   private[literargs] class Plus[C <: whitebox.Context](val c: C, idx: Int, val opt: Opt) {
     import c.universe._
     val ident = c.freshName(TermName(s"`${name.repr}`"))
@@ -40,10 +38,6 @@ object Opt {
 
 case class OptName(short: Char, long: Option[String] = None) {
   val repr = long.getOrElse(s"$short")
-  def builder() = using(COption.builder(short.toString)) {
-    builder =>
-      long.foreach(builder.longOpt(_))
-  }
   def render = s"-$short" + (long match {
     case Some(long) => s"|--$long"
     case _ => ""
@@ -51,7 +45,6 @@ case class OptName(short: Char, long: Option[String] = None) {
 }
 
 sealed trait Arity {
-  def matches(cmd: CommandLine, opt: Opt): Boolean = ???
   def render(ascription: Option[String]): String
 }
 private[literargs] sealed trait Brackets {
@@ -71,23 +64,15 @@ case class N_ary(required: Boolean) extends Arity with Brackets {
 }
 
 private[literargs] sealed trait Hole {
-  def option(name: OptName): COption
   def render: String
 }
 
 case class ValueHole(arity: Arity, private[literargs] val ascription: Option[String] = None) extends Hole {
-  def option(name: OptName): COption =
-    using(name.builder())(_.hasArg(true).required(arity match {
-      case Unary(true) => true
-      case _ => false
-    })).build()
   def render = arity.render(ascription)
 }
 
 case object BooleanHole extends Hole {
   private[literargs] def ascription = None
-  def option(name: OptName): COption =
-    using(name.builder())(_.hasArg(false).required(false)).build()
   def render = ""
 }
 
@@ -98,13 +83,16 @@ sealed trait Argument[M[_], T] {
 
 class ValueArgument[M[_], T](val opt: Opt)(
     implicit
-    cmd: CommandLine,
+    cmd: List[Arg],
     C: Collect[M],
     E: Extractor[M, T]
 ) extends Argument[M, T] {
   def value = C.collect(cmd, opt).map(E.extract)
 }
 
-class BooleanArgument(val opt: Opt)(implicit cmd: CommandLine) extends Argument[Id, Boolean] {
-  def value = Xor.right(cmd.hasOption(opt.name.repr))
+class BooleanArgument(val opt: Opt)(implicit cmd: List[Arg]) extends Argument[Id, Boolean] {
+  import cats.implicits._
+  def value = Xor.right(cmd.collect {
+    case BooleanArgs(matched) if matched.exists(_ == opt.name) => opt.name
+  }.nonEmpty)
 }

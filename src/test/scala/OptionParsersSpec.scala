@@ -50,11 +50,14 @@ class OptionParsersSpec extends Specification {
     (new scala.util.Random(System.nanoTime)).shuffle(
       ("-a" :: Nil) ::
         ("-b" :: Nil) ::
+        ("-x" :: Nil) ::
         ("--bbb" :: Nil) ::
         ("-c" :: "foo bar" :: Nil) ::
         ("-c" :: "baz quux" :: Nil) ::
+        ("-y" :: "yyy" :: Nil) ::
         ("-d" :: "foo bar" :: Nil) ::
         ("-d" :: "baz quux" :: Nil) ::
+        ("--zzz" :: "zzz" :: Nil) ::
         ("--ddd" :: "foo bar" :: Nil) ::
         ("--ddd" :: "baz quux" :: Nil) :: Nil
     ).flatten.toArray

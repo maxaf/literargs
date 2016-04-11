@@ -10,6 +10,7 @@ object OptionParsers {
   sealed trait Arg
   case class BooleanArgs(matched: NonEmptyList[OptName]) extends Arg
   case class ValueArg(matched: OptName, value: String) extends Arg
+  case class GarbageArg(garbage: String) extends Arg
 }
 
 class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
@@ -24,7 +25,7 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
   def shortBooleanArgs: Parser[BooleanArgs] = {
     val letters = opts
       .toList
-      .collect { case opt @ Opt(OptName(short, _), BooleanHole) => short }
+      .collect { case Opt(OptName(short, _), BooleanHole) => short }
     "-" ~> s"[${letters.mkString("")}]+".r ^^ {
       shorts =>
         val Some(matched) = NonEmptyList.fromList(
@@ -64,7 +65,7 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
     long.map(short | _).getOrElse(short) ^^ { ValueArg(opt.name, _) }
   }
 
-  def valueArgs: Option[Parser[Arg]] =
+  def valueArgs: Option[Parser[ValueArg]] =
     opts.toList.collect {
       case opt @ Opt(_, ValueHole(_, _)) => valueArg(opt)
     } match {
@@ -77,7 +78,9 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
     case _ => booleanArgs
   }
 
-  def args: Parser[List[Arg]] = repsep(anyArg, NullByte)
+  def garbageArg: Parser[Arg] = s"[^${NullByte}]+".r ^^ { GarbageArg(_) }
+
+  def args: Parser[List[Arg]] = repsep(anyArg | garbageArg, NullByte)
 
   def join(argv: Array[String]) = argv.mkString(NullByte)
   def parse_!(argv: Array[String]) = parseCommon(_.args)(join(argv))
