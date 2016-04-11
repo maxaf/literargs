@@ -28,12 +28,12 @@ class UsageMacros(val c: whitebox.Context) extends Parts with Parsing {
         val (thisPatterns, nextPatterns) = patterns.splitAt(n)
         val (thisNames, nextNames) = names.splitAt(n)
         copy(
-          tuple = c.freshName(),
+          tuple = TermName(c.freshName()),
           parts = reifyParts(thisParts),
           patterns = thisPatterns,
           names = thisNames
         ) :: copy(
-            tuple = c.freshName(),
+            tuple = TermName(c.freshName()),
             parts = reifyParts(nextParts),
             patterns = nextPatterns,
             names = nextNames
@@ -82,9 +82,9 @@ class UsageMacros(val c: whitebox.Context) extends Parts with Parsing {
         .flatMap(_.limit(22))
         .map(ArgsDeclLiftable(_))
         .flatMap(_.children)
-      using(q"""
+      q"""
         object $program { ..$decls }
         import $program._
-      """)(println)
+      """
   }
 }

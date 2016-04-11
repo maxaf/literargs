@@ -1,17 +1,7 @@
 package literargs
 
-import scala.util.parsing.combinator._
-import scala.util.parsing.input.Positional
-
 trait Parsing {
-  class Parser extends RegexParsers {
-    override def skipWhitespace = false
-
-    def optionEnd = "[ =]?".r
-
-    def longName = "--" ~> "[a-zA-Z][a-zA-Z0-9_-]+".r
-    def shortName = "-" ~> "[a-zA-Z0-9]".r
-
+  class Parser extends CommonParsers {
     def name = (shortName ~ opt('|' ~> longName)) <~ optionEnd ^^ {
       case short ~ long => OptName(short.head, long)
     }
@@ -30,19 +20,11 @@ trait Parsing {
       case name ~ required => Opt(name, required)
     })
 
-    def maybeWhitespace = opt("""\s+""".r)
-    def maybeNewline = opt(sys.props("line.separator"))
-
     def line = maybeWhitespace ~ rep1sep(option, " ") ~ maybeWhitespace ^^ {
       case _ ~ line ~ _ => line
     }
     def lines = repsep(line, maybeNewline)
 
-    def parse_!(text: String): Either[Either[Error, Failure], List[Opt]] =
-      parseAll(lines, text) match {
-        case result @ Success(good, x) => Right(good.flatten)
-        case fail @ Failure(_, _) => Left(Right(fail))
-        case err @ Error(_, _) => Left(Left(err))
-      }
+    def parse_!(text: String) = parseCommon(_.lines)(text).right.map(_.flatten)
   }
 }

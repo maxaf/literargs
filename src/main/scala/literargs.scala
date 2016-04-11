@@ -1,12 +1,9 @@
 package literargs
 
-import cats.{ Id, Monad, Functor }
-
 object `package` {
   implicit class Args(ctx: StringContext) {
     class Args {
       def unapply(unapplied: Array[String]): Any = macro ArgsMacros.unapplyImpl
-      def usage(xs: Any*) = println(s"xs = $xs")
     }
     object args extends Args
     object argsd extends Args

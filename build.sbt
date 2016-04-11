@@ -9,6 +9,7 @@ lazy val baseSettings = Seq(
   initialCommands := """
     import literargs._
     import scala.reflect.runtime.universe._
+    import cats._, cats.implicits._, cats.data._, algebra.std.all._
   """,
   scalacOptions ++= Seq(
     //"-Yquasiquote-debug",

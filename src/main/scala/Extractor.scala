@@ -2,7 +2,7 @@ package literargs
 
 import cats.Functor
 
-sealed abstract class Extractor[F[_], T](protected implicit val F: Functor[F]) {
+abstract class Extractor[F[_], T](protected implicit val F: Functor[F]) {
   def extract(raw: F[String]): F[T]
 }
 

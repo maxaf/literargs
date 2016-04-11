@@ -12,13 +12,13 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing with Parts {
     def move(offset: Int) = pos.focus.withPoint(pos.focus.point + offset)
   }
 
-  def unapplySeqImpl(unapplied: c.Expr[Array[String]]) = {
-    ???
-  }
-
   def unapplyImpl(unapplied: c.Expr[Array[String]]) = {
     val Select(Apply(_, List(Apply(_, parts))), Debug(debug)) = c.prefix.tree
-    val opts = parseParts(extractParts(parts)).zipWithIndex.map { case (opt, idx) => opt[c.type](c, idx) }
+
+    val opts = (new Parser).parse_!(extractParts(parts)) match {
+      case Right(parsed) => parsed.zipWithIndex.map { case (opt, idx) => opt[c.type](c, idx) }
+      case Left(err) => c.abort(c.prefix.tree.pos, s"problem: ${err.getClass}: $err")
+    }
 
     val get = opts match {
       case single :: Nil => q"def get: ${single.argType} = ${single.ident}"

@@ -32,7 +32,13 @@ case class Opt(name: OptName, private[literargs] val hole: Hole) extends Positio
   def render = (name.render, hole.render)
 }
 
-case class OptName(short: Char, long: Option[String]) {
+object Opt {
+  def boolean(name: OptName) = Opt(name, BooleanHole)
+  def value(name: OptName, multiple: Boolean = false, required: Boolean = false) =
+    Opt(name, ValueHole(if (multiple) N_ary(required) else Unary(required)))
+}
+
+case class OptName(short: Char, long: Option[String] = None) {
   val repr = long.getOrElse(s"$short")
   def builder() = using(COption.builder(short.toString)) {
     builder =>
@@ -69,7 +75,7 @@ private[literargs] sealed trait Hole {
   def render: String
 }
 
-case class ValueHole(arity: Arity, private[literargs] val ascription: Option[String]) extends Hole {
+case class ValueHole(arity: Arity, private[literargs] val ascription: Option[String] = None) extends Hole {
   def option(name: OptName): COption =
     using(name.builder())(_.hasArg(true).required(arity match {
       case Unary(true) => true
