@@ -22,17 +22,21 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
   def by[N](f: OptName => N, n: N): Option[Opt] =
     opts.find(opt => f(opt.name) == n)
 
-  def shortBooleanArgs: Parser[BooleanArgs] = {
-    val letters = opts
+  def shortBooleanArgs: Option[Parser[BooleanArgs]] = {
+    opts
       .toList
-      .collect { case Opt(OptName(short, _), BooleanHole) => short }
-    "-" ~> s"[${letters.mkString("")}]+".r ^^ {
-      shorts =>
-        val Some(matched) = NonEmptyList.fromList(
-          new StringOps(shorts).flatMap(by(_.short, _)).map(_.name).toList
-        )
-        BooleanArgs(matched)
-    }
+      .collect { case Opt(OptName(short, _), BooleanHole) => short } match {
+        case Nil => None
+        case letters => Some {
+          "-" ~> s"[${letters.mkString("")}]+".r ^^ {
+            shorts =>
+              val Some(matched) = NonEmptyList.fromList(
+                new StringOps(shorts).flatMap(by(_.short, _)).map(_.name).toList
+              )
+              BooleanArgs(matched)
+          }
+        }
+      }
   }
 
   def longBooleanArgs: Option[Parser[BooleanArgs]] = {
@@ -52,8 +56,8 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
     }
   }
 
-  def booleanArgs: Parser[BooleanArgs] =
-    longBooleanArgs.map(shortBooleanArgs | _).getOrElse(shortBooleanArgs)
+  def booleanArgs: Option[Parser[BooleanArgs]] =
+    shortBooleanArgs.flatMap(short => longBooleanArgs.map(short | _))
 
   def valueArg(opt: Opt): Parser[ValueArg] = {
     val shortName = "-" ~> s"${opt.name.short}".r ^^ { _.head }
@@ -73,14 +77,15 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
       case parsers => Some(parsers.reduce(_ | _))
     }
 
-  def anyArg: Parser[Arg] = valueArgs match {
-    case Some(parsers) => booleanArgs | parsers
-    case _ => booleanArgs
-  }
+  def anyArg: Option[Parser[Arg]] =
+    booleanArgs
+      .flatMap(bool => valueArgs.map(bool | _))
+      .orElse(valueArgs)
 
   def garbageArg: Parser[Arg] = s"[^${NullByte}]+".r ^^ { GarbageArg(_) }
 
-  def args: Parser[List[Arg]] = repsep(anyArg | garbageArg, NullByte)
+  def args: Parser[List[Arg]] =
+    repsep(anyArg.map(_ | garbageArg).getOrElse(garbageArg), NullByte)
 
   def join(argv: Array[String]) = argv.mkString(NullByte)
   def parse_!(argv: Array[String]) = parseCommon(_.args)(join(argv))
