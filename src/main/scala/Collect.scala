@@ -1,7 +1,6 @@
 package literargs
 
-import algebra.Semigroup
-import cats.{ Id, Monad, MonadFilter }
+import cats.{ Id, Monad, MonadFilter, Semigroup }
 import cats.data.{ NonEmptyList, Xor }
 import cats.syntax.semigroup._
 import OptionParsers._

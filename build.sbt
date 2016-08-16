@@ -9,7 +9,7 @@ lazy val baseSettings = Seq(
   initialCommands := """
     import literargs._
     import scala.reflect.runtime.universe._
-    import cats._, cats.implicits._, cats.data._, algebra.std.all._
+    import cats._, cats.implicits._, cats.data._
   """,
   scalacOptions ++= Seq(
     //"-Yquasiquote-debug",
@@ -21,10 +21,10 @@ lazy val baseSettings = Seq(
 
 lazy val deps = Seq(
  libraryDependencies ++= Seq(
-   "org.typelevel" %% "cats" % "0.4.1",
+   "org.typelevel" %% "cats" % "0.6.1",
    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
-   "org.specs2" %% "specs2-core" % "3.7.2" % "test",
-   "org.specs2" %% "specs2-matcher-extra" % "3.7.2" % "test"))
+   "org.specs2" %% "specs2-core" % "3.8.4" % "test",
+   "org.specs2" %% "specs2-matcher-extra" % "3.8.4" % "test"))
 
 lazy val updateReadme = taskKey[Unit]("copy tut-generated README.md to project root")
 
