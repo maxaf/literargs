@@ -28,6 +28,16 @@ lazy val deps = Seq(
 
 lazy val updateReadme = taskKey[Unit]("copy tut-generated README.md to project root")
 
+lazy val publishSettings = Seq(
+  publishTo <<= (version) {
+    v =>
+    val repo = file(".") / ".." / "repo"
+    Some(Resolver.file("repo",
+      if (v.trim.endsWith("SNAPSHOT")) repo / "snapshots"
+      else repo / "releases"))
+  }
+)
+
 lazy val core = project
   .in(file("."))
   .settings(baseSettings)
@@ -46,6 +56,7 @@ lazy val core = project
       case _ =>
     }
   })
+  .settings(publishSettings)
 
 lazy val tests = project
   .in(file("tests"))
