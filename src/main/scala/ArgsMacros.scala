@@ -31,8 +31,8 @@ class ArgsMacros(val c: whitebox.Context) extends Parsing with Parts {
         object opts {
           ..${opts.map(opt => q"val ${opt.ident} = ${opt.opt}")}
         }
-        object parser extends OptionParsers(cats.data.NonEmptyList(
-          ..${opts.map(opt => q"opts.${opt.ident}")}
+        object parser extends OptionParsers(cats.data.NonEmptyList.fromListUnsafe(
+          List(..${opts.map(opt => q"opts.${opt.ident}")})
         ))
         implicit val Right(cmd) = parser.parse_!(argv)
         ..${opts.map(_.argument)}

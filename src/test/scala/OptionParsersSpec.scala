@@ -8,11 +8,12 @@ import org.specs2.execute._, Typecheck._
 import org.specs2.matcher.TypecheckMatchers._
 
 class OptionParsersSpec extends Specification {
-  object ops extends OptionParsers(NonEmptyList(
-    Opt.boolean(OptName('a')),
-    Opt.boolean(OptName('b', long = Some("bbb"))),
-    Opt.value(OptName('c')),
-    Opt.value(OptName('d', long = Some("ddd")))
+  object ops extends OptionParsers(NonEmptyList.fromListUnsafe(
+    Opt.boolean(OptName('a')) ::
+      Opt.boolean(OptName('b', long = Some("bbb"))) ::
+      Opt.value(OptName('c')) ::
+      Opt.value(OptName('d', long = Some("ddd"))) ::
+      Nil
   ))
 
   def is = s2"""
