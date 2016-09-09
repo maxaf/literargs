@@ -1,11 +1,8 @@
 package literargs.test
 
 import literargs._
-import OptionParsers._
 import cats.data.NonEmptyList
 import org.specs2._
-import org.specs2.execute._, Typecheck._
-import org.specs2.matcher.TypecheckMatchers._
 
 class OptionParsersSpec extends Specification {
   object ops extends OptionParsers(NonEmptyList.fromListUnsafe(

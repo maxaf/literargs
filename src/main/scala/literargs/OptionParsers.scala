@@ -1,10 +1,7 @@
 package literargs
 
 import scala.collection.immutable.StringOps
-import scala.util.parsing.combinator._
-import scala.util.parsing.input.Positional
 import cats.data.NonEmptyList
-import cats.implicits._
 
 object OptionParsers {
   sealed trait Arg
@@ -40,20 +37,20 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
   }
 
   def longBooleanArgs: Option[Parser[BooleanArgs]] = {
-    opts.toList.collect {
-      case Opt(OptName(_, Some(long)), BooleanHole) => long
-    } match {
-      case Nil => None
-      case longNames => Some {
-        "--" ~> longNames.drop(1).foldLeft(longNames.head.r: Parser[String])(_ | _) ^^ {
-          long =>
-            val Some(matched) = NonEmptyList.fromList(
-              by(_.long, Some(long)).map(_.name).toList
-            )
-            BooleanArgs(matched)
+    opts
+      .toList
+      .collect { case Opt(OptName(_, Some(long)), BooleanHole) => long } match {
+        case Nil => None
+        case longNames => Some {
+          "--" ~> longNames.drop(1).foldLeft(longNames.head.r: Parser[String])(_ | _) ^^ {
+            long =>
+              val Some(matched) = NonEmptyList.fromList(
+                by(_.long, Some(long)).map(_.name).toList
+              )
+              BooleanArgs(matched)
+          }
         }
       }
-    }
   }
 
   def booleanArgs: Option[Parser[BooleanArgs]] =
