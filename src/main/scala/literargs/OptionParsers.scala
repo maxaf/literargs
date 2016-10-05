@@ -11,6 +11,12 @@ object OptionParsers {
 }
 
 class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
+  val shortBooleanOpts = opts
+    .toList
+    .collect { case Opt(OptName(short, _), BooleanHole) => short }
+  val longBooleanOpts = opts
+    .toList
+    .collect { case Opt(OptName(_, Some(long)), BooleanHole) => long }
   import OptionParsers._
 
   private val NullByte = s"${Char.MinValue}"
@@ -20,11 +26,10 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
     opts.find(opt => f(opt.name) == n)
 
   def shortBooleanArgs: Option[Parser[BooleanArgs]] = {
-    opts
-      .toList
-      .collect { case Opt(OptName(short, _), BooleanHole) => short } match {
-        case Nil => None
-        case letters => Some {
+    shortBooleanOpts match {
+      case Nil => None
+      case letters =>
+        Some {
           "-" ~> s"[${letters.mkString("")}]+".r ^^ {
             shorts =>
               val Some(matched) = NonEmptyList.fromList(
@@ -33,28 +38,26 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
               BooleanArgs(matched)
           }
         }
-      }
+    }
   }
 
   def longBooleanArgs: Option[Parser[BooleanArgs]] = {
-    opts
-      .toList
-      .collect { case Opt(OptName(_, Some(long)), BooleanHole) => long } match {
-        case Nil => None
-        case longNames => Some {
-          "--" ~> longNames.drop(1).foldLeft(longNames.head.r: Parser[String])(_ | _) ^^ {
-            long =>
-              val Some(matched) = NonEmptyList.fromList(
-                by(_.long, Some(long)).map(_.name).toList
-              )
-              BooleanArgs(matched)
-          }
+    longBooleanOpts match {
+      case Nil => None
+      case longNames => Some {
+        "--" ~> longNames.drop(1).foldLeft(longNames.head.r: Parser[String])(_ | _) ^^ {
+          long =>
+            val Some(matched) = NonEmptyList.fromList(
+              by(_.long, Some(long)).map(_.name).toList
+            )
+            BooleanArgs(matched)
         }
       }
+    }
   }
 
   def booleanArgs: Option[Parser[BooleanArgs]] =
-    shortBooleanArgs.flatMap(short => longBooleanArgs.map(short | _))
+    shortBooleanArgs.flatMap(short => longBooleanArgs.map(short | _)) orElse shortBooleanArgs orElse longBooleanArgs
 
   def valueArg(opt: Opt): Parser[ValueArg] = {
     val shortName = "-" ~> s"${opt.name.short}".r ^^ { _.head }
@@ -85,5 +88,7 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
     repsep(anyArg.map(_ | garbageArg).getOrElse(garbageArg), NullByte)
 
   def join(argv: Array[String]) = argv.mkString(NullByte)
-  def parse_!(argv: Array[String]) = parseCommon(_.args)(join(argv))
+  def parse_!(argv: Array[String]) = {
+    parseCommon(_.args)(join(argv))
+  }
 }

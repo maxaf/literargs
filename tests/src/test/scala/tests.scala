@@ -61,8 +61,10 @@ object ssh {
         -y $syslog
       """ = argv
     }
+    println(s"compress = ${compress.value}")
     println(s"login = ${login_name.value}")
     println(s"verbose = ${verbose.value}")
     println(s"option = ${option.value}")
+    println(s"local_tun_remote_tun = ${local_tun_remote_tun.value}")
   }
 }
