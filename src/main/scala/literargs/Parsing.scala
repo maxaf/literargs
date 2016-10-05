@@ -16,8 +16,8 @@ trait Parsing {
     def optionalValue = valueHole(reqd = false, open = "[", close = "]")
     def booleanHole = maybeWhitespace ^^ { _ => BooleanHole }
 
-    def option = positioned(name ~ (requiredValue | optionalValue | booleanHole) ^^ {
-      case name ~ required => Opt(name, required)
+    def option = positioned(name ~ maybeWhitespace ~ (requiredValue | optionalValue | booleanHole) ^^ {
+      case name ~ _ ~ required => Opt(name, required)
     })
 
     def line = maybeWhitespace ~ rep1sep(option, " ") ~ maybeWhitespace ^^ {
