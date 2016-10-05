@@ -8,4 +8,10 @@ object `package` {
     object args extends Args
     object argsd extends Args
   }
+
+  private[literargs] def using[A](factory: => A)(op: A => Any): A = {
+    val a = factory
+    op(a)
+    a
+  }
 }

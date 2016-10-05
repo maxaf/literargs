@@ -12,7 +12,7 @@ abstract class Liftables[C <: whitebox.Context](val c: C) {
   }
   implicit object liftHole extends Liftable[Hole] {
     def apply(hole: Hole) = hole match {
-      case ValueHole(arity) => q"ValueHole($arity)"
+      case ValueHole(arity, ascription) => q"ValueHole($arity, $ascription)"
       case BooleanHole => q"BooleanHole"
     }
   }
