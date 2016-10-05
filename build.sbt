@@ -1,5 +1,3 @@
-import java.nio.file._
-import java.nio.file.attribute._
 import macroRevolver._
 
 lazy val baseSettings = Seq(
