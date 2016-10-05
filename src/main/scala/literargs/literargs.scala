@@ -1,0 +1,3 @@
+package literargs
+
+object `package` {}
