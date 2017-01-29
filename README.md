@@ -102,11 +102,11 @@ scala> val args"-l $living -n <$name> -a [$age:Int] -i <..$interests> -c [..$acc
      |   "-c", "Nobel Prize",
      |   "-c", "New Jersey Hall Of Fame"
      | )
-living: literargs.Argument[cats.Id,Boolean] = $anon$1$Match$`l`$macro$6$@114ef90c
-name: literargs.Argument[cats.Id,String] = $anon$1$Match$`n`$macro$7$@63edd5fe
-age: literargs.Argument[Option,Int] = $anon$1$Match$`a`$macro$8$@1a7031ae
-interests: literargs.Argument[cats.data.NonEmptyList,String] = $anon$1$Match$`i`$macro$9$@b5afa66
-accomplishments: literargs.Argument[List,String] = $anon$1$Match$`c`$macro$10$@6dbae498
+living: literargs.Argument[cats.Id,Boolean] = $anon$1$Match$`l`$macro$6$@70945a32
+name: literargs.Argument[cats.Id,String] = $anon$1$Match$`n`$macro$7$@26d6a7d0
+age: literargs.Argument[Option,Int] = $anon$1$Match$`a`$macro$8$@1ae02577
+interests: literargs.Argument[cats.data.NonEmptyList,String] = $anon$1$Match$`i`$macro$9$@2ac848d7
+accomplishments: literargs.Argument[List,String] = $anon$1$Match$`c`$macro$10$@78dfd276
 ```
 
 We get three symbols - `name`, `age`, and `interests` - of type `Argument[M[_],
@@ -114,7 +114,7 @@ A]`. The `Argument` type is defined by `literargs` as follows:
 
 ```scala
 sealed trait Argument[M[_], T] {
-  def value: Xor[Throwable, M[T]]
+  def value: Either[Throwable, M[T]]
 }
 ```
 
@@ -148,19 +148,19 @@ Let's check out some of the values now:
 
 ```scala
 scala> living.value
-res2: cats.data.Xor[Throwable,cats.Id[Boolean]] = Right(false)
+res2: Either[Throwable,cats.Id[Boolean]] = Right(false)
 
 scala> name.value
-res3: cats.data.Xor[Throwable,cats.Id[String]] = Right(Albert Einstein)
+res3: Either[Throwable,cats.Id[String]] = Right(Albert Einstein)
 
 scala> age.value
-res4: cats.data.Xor[Throwable,Option[Int]] = Right(Some(137))
+res4: Either[Throwable,Option[Int]] = Right(Some(137))
 
 scala> interests.value
-res5: cats.data.Xor[Throwable,cats.data.NonEmptyList[String]] = Right(OneAnd(physics,List(cosmology, wonders of the universe)))
+res5: Either[Throwable,cats.data.NonEmptyList[String]] = Right(NonEmptyList(physics, cosmology, wonders of the universe))
 
 scala> accomplishments.value
-res6: cats.data.Xor[Throwable,List[String]] = Right(List(Nobel Prize, New Jersey Hall Of Fame))
+res6: Either[Throwable,List[String]] = Right(List(Nobel Prize, New Jersey Hall Of Fame))
 ```
 
 We see here that types of values are assigned depending on what syntax was used
@@ -245,11 +245,11 @@ val args"""
     "-c", "Nobel Prize",
     "-c", "New Jersey Hall Of Fame"
   )
-// living: literargs.Argument[cats.Id,Boolean] = $anon$1$Match$`l`$macro$16$@6080a3dd
-// name: literargs.Argument[cats.Id,String] = $anon$1$Match$`n`$macro$17$@3277307e
-// age: literargs.Argument[Option,Int] = $anon$1$Match$`a`$macro$18$@69106507
-// interests: literargs.Argument[cats.data.NonEmptyList,String] = $anon$1$Match$`i`$macro$19$@54e0e733
-// accomplishments: literargs.Argument[List,Accomplishment] = $anon$1$Match$`c`$macro$20$@319b3839
+// living: literargs.Argument[cats.Id,Boolean] = $anon$1$Match$`l`$macro$16$@4f99917e
+// name: literargs.Argument[cats.Id,String] = $anon$1$Match$`n`$macro$17$@1bc20542
+// age: literargs.Argument[Option,Int] = $anon$1$Match$`a`$macro$18$@61ee516b
+// interests: literargs.Argument[cats.data.NonEmptyList,String] = $anon$1$Match$`i`$macro$19$@5a6566c1
+// accomplishments: literargs.Argument[List,Accomplishment] = $anon$1$Match$`c`$macro$20$@59f40e92
 ```
 
 Here we have provided an instance of `Extractor[F[_], Accomplishment]` that
@@ -258,7 +258,7 @@ turns `String`-s into `Accomplishment`-s. A couple of things to note:
 * We must abstract over `F[_]` because in the field it might be a `Id`,
   `Option`, `List`, `NonEmptyList`, or some other thing.
 * This `Extractor` performs a couple of dangerous operations, which, in case of
-  failure, would make use of the LHS of `def value: Xor[Throwable, M[T]]` on
+  failure, would make use of the LHS of `def value: Either[Throwable, M[T]]` on
   `Argument[M[_], T]`.
 
 ## What now?

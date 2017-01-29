@@ -102,7 +102,7 @@ A]`. The `Argument` type is defined by `literargs` as follows:
 
 ```scala
 sealed trait Argument[M[_], T] {
-  def value: Xor[Throwable, M[T]]
+  def value: Either[Throwable, M[T]]
 }
 ```
 
@@ -224,7 +224,7 @@ turns `String`-s into `Accomplishment`-s. A couple of things to note:
 * We must abstract over `F[_]` because in the field it might be a `Id`,
   `Option`, `List`, `NonEmptyList`, or some other thing.
 * This `Extractor` performs a couple of dangerous operations, which, in case of
-  failure, would make use of the LHS of `def value: Xor[Throwable, M[T]]` on
+  failure, would make use of the LHS of `def value: Either[Throwable, M[T]]` on
   `Argument[M[_], T]`.
 
 ## What now?

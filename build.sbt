@@ -4,7 +4,7 @@ import macroRevolver._
 
 lazy val baseSettings = Seq(
   organization := "com.bumnetworks",
-  version := "0.0.1",
+  version := "0.0.2",
   scalaVersion := "2.11.8",
   initialCommands := """
     import literargs._
@@ -21,10 +21,10 @@ lazy val baseSettings = Seq(
 
 lazy val deps = Seq(
  libraryDependencies ++= Seq(
-   "org.typelevel" %% "cats" % "0.7.0",
-   "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
-   "org.specs2" %% "specs2-core" % "3.8.4" % "test",
-   "org.specs2" %% "specs2-matcher-extra" % "3.8.4" % "test"))
+   "org.typelevel" %% "cats" % "0.8.1",
+   "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.5",
+   "org.specs2" %% "specs2-core" % "3.8.7" % "test",
+   "org.specs2" %% "specs2-matcher-extra" % "3.8.7" % "test"))
 
 lazy val updateReadme = taskKey[Unit]("copy tut-generated README.md to project root")
 

@@ -2,7 +2,7 @@ package literargs
 
 import scala.util.parsing.input.Positional
 import cats.Id
-import cats.data.Xor
+import cats.syntax.either._
 import scala.reflect.macros.whitebox
 import OptionParsers._
 
@@ -78,7 +78,7 @@ case object BooleanHole extends Hole {
 
 sealed trait Argument[M[_], T] {
   def opt: Opt
-  def value: Xor[Throwable, M[T]]
+  def value: Either[Throwable, M[T]]
 }
 
 class ValueArgument[M[_], T](val opt: Opt)(
@@ -92,7 +92,7 @@ class ValueArgument[M[_], T](val opt: Opt)(
 
 class BooleanArgument(val opt: Opt)(implicit cmd: List[Arg]) extends Argument[Id, Boolean] {
   import cats.implicits._
-  def value = Xor.right(cmd.collect {
+  def value = Right(cmd.collect {
     case BooleanArgs(matched) if matched.exists(_ == opt.name) => opt.name
   }.nonEmpty)
 }
