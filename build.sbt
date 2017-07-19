@@ -1,11 +1,14 @@
+enablePlugins(TutPlugin)
+
 import java.nio.file._
 import java.nio.file.attribute._
 import macroRevolver._
 
 lazy val baseSettings = Seq(
   organization := "com.bumnetworks",
-  version := "0.0.2",
-  scalaVersion := "2.11.8",
+  version := "0.0.3",
+  crossScalaVersions := Seq("2.12.2", "2.11.11"),
+  scalaVersion := crossScalaVersions.value.head,
   initialCommands := """
     import literargs._
     import scala.reflect.runtime.universe._
@@ -17,14 +20,14 @@ lazy val baseSettings = Seq(
     "-unchecked",
     "-feature",
     "-language:higherKinds"
-  )) ++ scalariformSettings ++ tutSettings
+  )) ++ scalariformSettings
 
 lazy val deps = Seq(
  libraryDependencies ++= Seq(
-   "org.typelevel" %% "cats" % "0.8.1",
-   "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.5",
-   "org.specs2" %% "specs2-core" % "3.8.7" % "test",
-   "org.specs2" %% "specs2-matcher-extra" % "3.8.7" % "test"))
+   "org.typelevel" %% "cats" % "0.9.0",
+   "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6",
+   "org.specs2" %% "specs2-core" % "3.9.1" % "test",
+   "org.specs2" %% "specs2-matcher-extra" % "3.9.1" % "test"))
 
 lazy val updateReadme = taskKey[Unit]("copy tut-generated README.md to project root")
 

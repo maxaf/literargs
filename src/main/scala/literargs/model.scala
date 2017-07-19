@@ -82,11 +82,10 @@ sealed trait Argument[M[_], T] {
 }
 
 class ValueArgument[M[_], T](val opt: Opt)(
-    implicit
-    cmd: List[Arg],
-    C: Collect[M],
-    E: Extractor[M, T]
-) extends Argument[M, T] {
+  implicit
+  cmd: List[Arg],
+  C: Collect[M],
+  E: Extractor[M, T]) extends Argument[M, T] {
   def value = C.collect(cmd, opt).map(E.extract)
 }
 

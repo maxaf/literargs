@@ -12,14 +12,13 @@ class UsageMacros(val c: whitebox.Context) extends Parts with Parsing {
   import c.universe._
 
   case class ArgsDecl(
-      debug: Boolean,
-      mods: Modifiers,
-      tuple: TermName,
-      argv: Tree,
-      parts: List[Tree],
-      patterns: List[Tree],
-      names: List[Tree]
-  ) {
+    debug: Boolean,
+    mods: Modifiers,
+    tuple: TermName,
+    argv: Tree,
+    parts: List[Tree],
+    patterns: List[Tree],
+    names: List[Tree]) {
     def limit(n: Int = 22): List[ArgsDecl] =
       if (n >= patterns.size) this :: Nil
       else {
@@ -31,13 +30,11 @@ class UsageMacros(val c: whitebox.Context) extends Parts with Parsing {
           tuple = TermName(c.freshName()),
           parts = reifyParts(thisParts),
           patterns = thisPatterns,
-          names = thisNames
-        ) :: copy(
+          names = thisNames) :: copy(
             tuple = TermName(c.freshName()),
             parts = reifyParts(nextParts),
             patterns = nextPatterns,
-            names = nextNames
-          ).limit(n)
+            names = nextNames).limit(n)
       }
   }
 

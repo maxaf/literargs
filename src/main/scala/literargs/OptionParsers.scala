@@ -33,8 +33,7 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
           "-" ~> s"[${letters.mkString("")}]+".r ^^ {
             shorts =>
               val Some(matched) = NonEmptyList.fromList(
-                new StringOps(shorts).flatMap(by(_.short, _)).map(_.name).toList
-              )
+                new StringOps(shorts).flatMap(by(_.short, _)).map(_.name).toList)
               BooleanArgs(matched)
           }
         }
@@ -48,8 +47,7 @@ class OptionParsers(val opts: NonEmptyList[Opt]) extends CommonParsers {
         "--" ~> longNames.drop(1).foldLeft(longNames.head.r: Parser[String])(_ | _) ^^ {
           long =>
             val Some(matched) = NonEmptyList.fromList(
-              by(_.long, Some(long)).map(_.name).toList
-            )
+              by(_.long, Some(long)).map(_.name).toList)
             BooleanArgs(matched)
         }
       }

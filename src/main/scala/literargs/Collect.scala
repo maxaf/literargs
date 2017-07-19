@@ -21,8 +21,7 @@ object Collect {
             M.filter(
               get(cmd, opt)
                 .map(M.pure(_))
-                .foldLeft(M.empty[String])(_ |+| _)
-            )(_ != null)
+                .foldLeft(M.empty[String])(_ |+| _))(_ != null)
           else M.empty
         }
     }
@@ -32,8 +31,7 @@ object Collect {
       def collect(cmd: List[Arg], opt: Opt) = CO.collect(cmd, opt).flatMap(
         _
           .map(value => Right(M.pure(value)))
-          .getOrElse(Left(new Exception(s"missing required unary $opt in $cmd")))
-      )
+          .getOrElse(Left(new Exception(s"missing required unary $opt in $cmd"))))
     }
 
   implicit def collectNel(implicit CL: Collect[List], M: Monad[NonEmptyList]) =
@@ -42,7 +40,6 @@ object Collect {
         NonEmptyList
           .fromList(_)
           .map(Right(_))
-          .getOrElse(Left(new Exception(s"missing required N-ary $opt in $cmd")))
-      )
+          .getOrElse(Left(new Exception(s"missing required N-ary $opt in $cmd"))))
     }
 }
